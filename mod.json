@@ -3,7 +3,7 @@
 	"gd": {
 		"android": "2.2081"
 	},
-	"version": "v0.1.0",
+	"version": "v0.1.1",
 	"id": "yrcsi.safe-input-buffer",
 	"name": "Safe Input Buffer",
 	"developer": "yrcsi",
@@ -14,6 +14,12 @@
 			"type": "bool",
 			"name": "Enabled",
 			"description": "Turn the input buffer on or off.",
+			"default": true
+		},
+		"only-near-hazards": {
+			"type": "bool",
+			"name": "Only Check Near Hazards",
+			"description": "Only runs the death check when a spike or saw is close. Much less lag, but won't catch solid-block deaths.",
 			"default": true
 		},
 		"max-delay-frames": {
@@ -30,8 +36,8 @@
 		"lookahead-ticks": {
 			"type": "int",
 			"name": "Lookahead (ticks)",
-			"description": "How far ahead (in 1/240s physics ticks) the death check simulates. Higher is more accurate but heavier.",
-			"default": 30,
+			"description": "How far ahead (in 1/240s physics ticks) the death check simulates. Lower is lighter, higher is more accurate.",
+			"default": 20,
 			"min": 8,
 			"max": 120
 		}
