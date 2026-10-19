@@ -1,0 +1,42 @@
+{
+	"geode": "5.0.0",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"version": "v0.1.0",
+	"id": "yourname.safe-input-buffer",
+	"name": "Safe Input Buffer",
+	"developer": "yourname",
+	"description": "Delays a click by a few frames if clicking right now would kill you.",
+	"tags": ["gameplay", "utility"],
+	"settings": {
+		"enabled": {
+			"type": "bool",
+			"name": "Enabled",
+			"description": "Turn the input buffer on or off.",
+			"default": true
+		},
+		"max-delay-frames": {
+			"type": "int",
+			"name": "Max Delay (frames)",
+			"description": "How many frames a click can be held back while waiting for a safe moment. After this, the click fires normally.",
+			"default": 3,
+			"min": 1,
+			"max": 10,
+			"control": {
+				"slider": true
+			}
+		},
+		"lookahead-ticks": {
+			"type": "int",
+			"name": "Lookahead (ticks)",
+			"description": "How far ahead (in 1/240s physics ticks) the death check simulates. Higher is more accurate but heavier.",
+			"default": 30,
+			"min": 8,
+			"max": 120
+		}
+	}
+}
