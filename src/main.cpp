@@ -4,8 +4,7 @@
 // If you would die, the click is held back and re-tested every frame until it
 // is safe (or until the max delay runs out, then it fires normally).
 //
-// NOTE: written without being able to compile or run it. Lines marked
-// "VERIFY" depend on the exact Geode bindings for GD 2.2081.
+// NOTE: written without being able to run it in-game.
 
 #include <Geode/Geode.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
@@ -16,15 +15,14 @@ using namespace geode::prelude;
 namespace ib {
 
 	struct Pending {
-		bool active = false;       // a click is being held back
+		bool active = false;        // a click is being held back
 		bool releaseQueued = false; // player let go while we were holding the click
-		bool fired = false;        // click was sent, release still has to follow
-		int frames = 0;            // frames waited so far
+		bool fired = false;         // click was sent, release still has to follow
+		int frames = 0;             // frames waited so far
 	};
 
 	inline bool simulating = false; // true while the lookahead is running
 	inline bool simDied = false;    // set when the lookahead player dies
-	inline bool bypass = false;     // true when WE are sending input
 	inline Pending pending[2];      // [0] = player 1, [1] = player 2
 
 	inline bool enabled() {
@@ -36,11 +34,9 @@ namespace ib {
 		pending[1] = {};
 	}
 
-	// Send input without going through our own hook again.
+	// Send input directly, without going through the input queue hook.
 	inline void sendButton(GJBaseGameLayer* layer, bool down, bool p1) {
-		bypass = true;
-		layer->queueButton(1, down, p1); // VERIFY: queueButton(int button, bool down, bool isPlayer1)
-		bypass = false;
+		layer->handleButton(down, 1, p1); // VERIFY: handleButton(bool down, int button, bool isPlayer1)
 	}
 
 	// Would pressing jump right now lead to death within the lookahead window?
@@ -52,7 +48,7 @@ namespace ib {
 		simDied = false;
 
 		// Snapshot the whole level state, the same way practice mode does.
-		CheckpointObject* cp = pl->createCheckpoint(); // VERIFY: may also store it in the checkpoint array
+		CheckpointObject* cp = pl->createCheckpoint();
 		if (!cp) {
 			simulating = false;
 			return false;
@@ -60,14 +56,14 @@ namespace ib {
 		cp->retain();
 
 		// Apply the click and step the game forward.
-		pl->queueButton(1, true, p1);
+		sendButton(pl, true, p1);
 		for (int i = 0; i < lookahead && !simDied; i++) {
-			pl->update(1.f / 240.f); // VERIFY: assumes the default 240 TPS step
+			pl->update(1.f / 240.f);
 		}
 
 		// Roll everything back and drop the simulated button state.
-		pl->loadFromCheckpoint(cp); // VERIFY
-		pl->queueButton(1, false, p1);
+		pl->loadFromCheckpoint(cp);
+		sendButton(pl, false, p1);
 		cp->release();
 
 		bool died = simDied;
@@ -106,25 +102,26 @@ namespace ib {
 }
 
 class $modify(IBBaseLayer, GJBaseGameLayer) {
-	void queueButton(int button, bool down, bool isPlayer1) {
+	void queueButton(int button, bool push, bool isPlayer2, double timestamp) {
+		bool isPlayer1 = !isPlayer2;
 		auto pl = PlayLayer::get();
 
 		bool passThrough =
-			ib::simulating || ib::bypass || !ib::enabled() || !pl ||
+			ib::simulating || !ib::enabled() || !pl ||
 			static_cast<GJBaseGameLayer*>(pl) != this || button != 1;
 
 		if (passThrough) {
-			GJBaseGameLayer::queueButton(button, down, isPlayer1);
+			GJBaseGameLayer::queueButton(button, push, isPlayer2, timestamp);
 			return;
 		}
 
 		auto& p = ib::pending[isPlayer1 ? 0 : 1];
 
-		if (down) {
+		if (push) {
 			if (p.active) return; // already waiting on a click
 
 			if (!ib::wouldDie(pl, isPlayer1)) {
-				GJBaseGameLayer::queueButton(button, down, isPlayer1);
+				GJBaseGameLayer::queueButton(button, push, isPlayer2, timestamp);
 				return;
 			}
 
@@ -140,7 +137,7 @@ class $modify(IBBaseLayer, GJBaseGameLayer) {
 			return;
 		}
 
-		GJBaseGameLayer::queueButton(button, down, isPlayer1);
+		GJBaseGameLayer::queueButton(button, push, isPlayer2, timestamp);
 	}
 };
 
