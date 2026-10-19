@@ -1,14 +1,15 @@
 // Safe Input Buffer
 //
-// When you click, the mod simulates a few ticks ahead with that click applied.
-// If you would die, the click is held back and re-tested every frame until it
-// is safe (or until the max delay runs out, then it fires normally).
-//
-// NOTE: written without being able to run it in-game.
+// When you click, the mod checks whether a hazard is close. If so, it simulates
+// a few ticks ahead with that click applied. If you would die, the click is held
+// back and re-tested every frame until it is safe (or until the max delay runs
+// out, then it fires normally).
 
 #include <Geode/Geode.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <algorithm>
+#include <vector>
 
 using namespace geode::prelude;
 
@@ -25,6 +26,9 @@ namespace ib {
 	inline bool simDied = false;    // set when the lookahead player dies
 	inline Pending pending[2];      // [0] = player 1, [1] = player 2
 
+	inline std::vector<float> hazardX; // sorted x positions of all hazards in the level
+	inline bool hazardsReady = false;
+
 	inline bool enabled() {
 		return Mod::get()->getSettingValue<bool>("enabled");
 	}
@@ -36,13 +40,30 @@ namespace ib {
 
 	// Send input directly, without going through the input queue hook.
 	inline void sendButton(GJBaseGameLayer* layer, bool down, bool p1) {
-		layer->handleButton(down, 1, p1); // VERIFY: handleButton(bool down, int button, bool isPlayer1)
+		layer->handleButton(down, 1, p1);
+	}
+
+	// Is there a hazard close enough ahead that a click could matter?
+	inline bool hazardNear(PlayLayer* pl, bool p1, int lookahead) {
+		if (!Mod::get()->getSettingValue<bool>("only-near-hazards")) return true;
+		if (!hazardsReady) return true; // list unavailable, fall back to always checking
+
+		PlayerObject* player = p1 ? pl->m_player1 : pl->m_player2;
+		if (!player) return false;
+
+		float x = player->getPositionX();
+		float ahead = 80.f + (static_cast<float>(lookahead) / 240.f) * 520.f;
+
+		auto it = std::lower_bound(hazardX.begin(), hazardX.end(), x - 20.f);
+		return it != hazardX.end() && *it <= x + ahead;
 	}
 
 	// Would pressing jump right now lead to death within the lookahead window?
 	// Runs between frames (from the touch/key event), never inside update().
 	inline bool wouldDie(PlayLayer* pl, bool p1) {
 		int lookahead = static_cast<int>(Mod::get()->getSettingValue<int64_t>("lookahead-ticks"));
+
+		if (!hazardNear(pl, p1, lookahead)) return false;
 
 		simulating = true;
 		simDied = false;
@@ -142,6 +163,22 @@ class $modify(IBBaseLayer, GJBaseGameLayer) {
 };
 
 class $modify(IBPlayLayer, PlayLayer) {
+	void setupHasCompleted() {
+		PlayLayer::setupHasCompleted();
+
+		// Remember where every hazard is, so clicks far from spikes skip the simulation.
+		ib::hazardX.clear();
+		if (m_objects) {
+			for (auto obj : CCArrayExt<GameObject*>(m_objects)) {
+				if (obj && obj->m_objectType == GameObjectType::Hazard) {
+					ib::hazardX.push_back(obj->getPositionX());
+				}
+			}
+		}
+		std::sort(ib::hazardX.begin(), ib::hazardX.end());
+		ib::hazardsReady = true;
+	}
+
 	void update(float dt) {
 		PlayLayer::update(dt);
 		if (ib::simulating || !ib::enabled()) return;
@@ -164,6 +201,8 @@ class $modify(IBPlayLayer, PlayLayer) {
 
 	void onQuit() {
 		ib::clearAll();
+		ib::hazardX.clear();
+		ib::hazardsReady = false;
 		PlayLayer::onQuit();
 	}
 };
