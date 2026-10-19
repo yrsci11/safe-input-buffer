@@ -1,15 +1,12 @@
 {
-	"geode": "5.0.0",
+	"geode": "5.11.2",
 	"gd": {
-		"win": "2.2081",
-		"android": "2.2081",
-		"mac": "2.2081",
-		"ios": "2.2081"
+		"android": "2.2081"
 	},
 	"version": "v0.1.0",
-	"id": "yourname.safe-input-buffer",
+	"id": "yrcsi.safe-input-buffer",
 	"name": "Safe Input Buffer",
-	"developer": "yourname",
+	"developer": "yrcsi",
 	"description": "Delays a click by a few frames if clicking right now would kill you.",
 	"tags": ["gameplay", "utility"],
 	"settings": {
